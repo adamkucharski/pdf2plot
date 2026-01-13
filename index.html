@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>pdf2plot - Extract Data from PDF Figures</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <style>
         * {
@@ -21,14 +24,16 @@
 
         h1 {
             text-align: center;
-            font-size: 3em;
-            font-weight: 800;
+            font-family: 'Fredoka', sans-serif;
+            font-size: 3.5em;
+            font-weight: 600;
+            margin-top: 0;
             margin-bottom: 10px;
             background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 50%, #3b82f6 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
-            letter-spacing: -1px;
+            letter-spacing: 1px;
         }
 
         .subtitle {
@@ -545,7 +550,8 @@
     <div id="tooltip" class="tooltip hidden"></div>
 
     <footer class="credit">
-        This tool was created by <strong>Adam Kucharski</strong>. If you found it useful, consider adding a <a href="https://github.com/adamkucharski/pdf2plot" target="_blank" rel="noopener">star on GitHub</a>.
+        This tool was created by <strong>Adam Kucharski</strong>, Professor at London School of Hygiene & Tropical Medicine and co-founder of <a href="https://www.wholesum.tech/" target="_blank" rel="noopener">WholeSum</a>.
+        <p style="margin-top: 8px;">If you found it useful, consider adding a <a href="https://github.com/adamkucharski/pdf2plot" target="_blank" rel="noopener">star on GitHub</a>.</p>
     </footer>
 
     <script>
