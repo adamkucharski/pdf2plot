@@ -1,0 +1,1593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDFy - Extract Data from PDF Figures</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+            color: #333;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 3em;
+            font-weight: 800;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 50%, #3b82f6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: -1px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 15px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+            border: 1px solid #e0e7ff;
+        }
+
+        .upload-area {
+            border: 2px dashed #93c5fd;
+            border-radius: 12px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%);
+        }
+
+        .upload-area:hover {
+            border-color: #2563eb;
+            background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.15);
+        }
+
+        .upload-area.dragover {
+            border-color: #1e3a5f;
+            background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+            box-shadow: 0 4px 16px rgba(37, 99, 235, 0.2);
+        }
+
+        #file-input {
+            display: none;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+        }
+
+        .btn:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+            box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+        }
+
+        .btn-success:hover {
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        #canvas-container {
+            position: relative;
+            margin: 20px 0;
+            overflow: auto;
+            background: #fafafa;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            text-align: center;
+            padding: 20px;
+            min-height: 200px;
+        }
+
+        #canvas-wrapper {
+            position: relative;
+            display: inline-block;
+        }
+
+        #pdf-canvas {
+            display: block;
+            background: white;
+        }
+
+        #overlay-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            pointer-events: auto;
+            cursor: crosshair;
+        }
+
+        .instructions {
+            background: linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%);
+            border-left: 4px solid #2563eb;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .instructions h3 {
+            margin-top: 0;
+            color: #1e3a5f;
+        }
+
+        .instructions ol {
+            margin-bottom: 0;
+            padding-left: 20px;
+        }
+
+        .instructions li {
+            margin: 8px 0;
+        }
+
+        .control-panel {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .control-group {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+        }
+
+        .control-group h4 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+
+        .form-row {
+            display: flex;
+            align-items: center;
+            margin: 8px 0;
+            gap: 10px;
+        }
+
+        .form-row label {
+            min-width: 80px;
+        }
+
+        .form-row input[type="number"] {
+            width: 100px;
+            padding: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .form-row input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+        }
+
+        .mode-selector {
+            display: flex;
+            gap: 10px;
+            margin: 15px 0;
+            flex-wrap: wrap;
+        }
+
+        .mode-btn {
+            padding: 8px 16px;
+            border: 2px solid #2563eb;
+            background: white;
+            color: #1e3a5f;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+
+        .mode-btn:hover {
+            background: #eff6ff;
+            transform: translateY(-1px);
+        }
+
+        .mode-btn.active {
+            background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%);
+            color: white;
+            border-color: transparent;
+            box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+        }
+
+        .legend {
+            display: flex;
+            gap: 20px;
+            margin: 10px 0;
+            flex-wrap: wrap;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 4px;
+        }
+
+        .legend-color.x-tick {
+            background: #e74c3c;
+        }
+
+        .legend-color.y-tick {
+            background: #27ae60;
+        }
+
+        .legend-color.data {
+            background: #9b59b6;
+        }
+
+        .export-section {
+            text-align: center;
+            padding: 20px;
+        }
+
+        .line-selector {
+            margin-bottom: 15px;
+        }
+
+        .line-selector select {
+            padding: 8px 12px;
+            font-size: 14px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            min-width: 150px;
+        }
+
+        #plot-container {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        #plot-canvas {
+            max-width: 100%;
+        }
+
+        .credit {
+            text-align: center;
+            padding: 20px;
+            color: #888;
+            font-size: 14px;
+            margin-top: 20px;
+        }
+
+        .credit a {
+            color: #2563eb;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .credit a:hover {
+            text-decoration: underline;
+            color: #1e3a5f;
+        }
+
+        .data-preview {
+            margin: 20px 0;
+            max-height: 300px;
+            overflow: auto;
+        }
+
+        .data-preview table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .data-preview th, .data-preview td {
+            padding: 8px;
+            border: 1px solid #ddd;
+            text-align: left;
+        }
+
+        .data-preview th {
+            background: #f0f0f0;
+            position: sticky;
+            top: 0;
+        }
+
+        .tooltip {
+            position: absolute;
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            pointer-events: none;
+            z-index: 100;
+        }
+
+        .step-indicator {
+            display: flex;
+            justify-content: center;
+            margin: 20px 0;
+            gap: 10px;
+        }
+
+        .step {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding: 8px 16px;
+            background: #f0f0f0;
+            border-radius: 20px;
+            color: #666;
+            transition: all 0.3s;
+        }
+
+        .step.active {
+            background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%);
+            color: white;
+            box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+        }
+
+        .step.completed {
+            background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+            color: white;
+            box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+        }
+
+        .step-number {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #1e3a5f;
+            font-weight: 500;
+        }
+
+        .loading::after {
+            content: '';
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #2563eb;
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-left: 10px;
+            vertical-align: middle;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <h1>PDFy</h1>
+    <p class="subtitle">Extract data from PDF figures - all processing happens locally in your browser, no data is sent anywhere</p>
+
+    <!-- Step 1: Upload -->
+    <div id="step-upload" class="container">
+        <h2>Step 1: Upload PDF Figure</h2>
+        <div class="upload-area" id="upload-area">
+            <p>Drag and drop a PDF file here, or click to select</p>
+            <input type="file" id="file-input" accept=".pdf">
+            <button class="btn" onclick="document.getElementById('file-input').click()">Choose File</button>
+        </div>
+        <p id="file-name" class="hidden" style="margin-top: 10px; text-align: center;"></p>
+        <div id="loading" class="loading hidden">Processing PDF...</div>
+    </div>
+
+    <!-- Step 2: Calibrate -->
+    <div id="step-calibrate" class="container hidden">
+        <h2>Step 2: Calibrate Axes & Select Data</h2>
+
+        <div class="step-indicator">
+            <div class="step" id="step-ind-1"><span class="step-number">1</span> X-Axis</div>
+            <div class="step" id="step-ind-2"><span class="step-number">2</span> Y-Axis</div>
+            <div class="step" id="step-ind-3"><span class="step-number">3</span> Data</div>
+        </div>
+
+        <div class="instructions">
+            <h3>Instructions</h3>
+            <ol>
+                <li><strong>Select X-axis tick marks:</strong> Click on two tick marks on the X-axis and enter their values</li>
+                <li><strong>Select Y-axis tick marks:</strong> Click on two tick marks on the Y-axis and enter their values</li>
+                <li><strong>Select data lines:</strong> Click on the lines/paths you want to extract</li>
+            </ol>
+        </div>
+
+        <div class="legend">
+            <div class="legend-item"><span class="legend-color x-tick"></span> X-axis ticks</div>
+            <div class="legend-item"><span class="legend-color y-tick"></span> Y-axis ticks</div>
+            <div class="legend-item"><span class="legend-color data"></span> Selected data</div>
+        </div>
+
+        <div class="mode-selector">
+            <button class="mode-btn active" data-mode="x-tick" id="mode-x">Select X-Axis Ticks (0/2)</button>
+            <button class="mode-btn" data-mode="y-tick" id="mode-y">Select Y-Axis Ticks (0/2)</button>
+            <button class="mode-btn" data-mode="data" id="mode-data">Select Data Lines (0)</button>
+        </div>
+
+        <div id="canvas-container">
+            <div id="canvas-wrapper">
+                <canvas id="pdf-canvas"></canvas>
+                <canvas id="overlay-canvas"></canvas>
+            </div>
+        </div>
+
+        <div class="control-panel">
+            <div class="control-group">
+                <h4>X-Axis Calibration</h4>
+                <div class="form-row">
+                    <label>Left X tick:</label>
+                    <input type="number" id="x-tick-left-val" step="any" placeholder="e.g., 0">
+                </div>
+                <div class="form-row">
+                    <label>Right X tick:</label>
+                    <input type="number" id="x-tick-right-val" step="any" placeholder="e.g., 100">
+                </div>
+                <div class="form-row">
+                    <input type="checkbox" id="x-log-scale">
+                    <label>X-axis is logarithmic</label>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <h4>Y-Axis Calibration</h4>
+                <div class="form-row">
+                    <label>Bottom Y tick:</label>
+                    <input type="number" id="y-tick-bottom-val" step="any" placeholder="e.g., 0">
+                </div>
+                <div class="form-row">
+                    <label>Top Y tick:</label>
+                    <input type="number" id="y-tick-top-val" step="any" placeholder="e.g., 100">
+                </div>
+                <div class="form-row">
+                    <input type="checkbox" id="y-log-scale">
+                    <label>Y-axis is logarithmic</label>
+                </div>
+            </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 20px;">
+            <button class="btn" id="btn-reset" onclick="resetSelection()">Reset Selection</button>
+            <button class="btn btn-success" id="btn-extract" onclick="extractData()" disabled>Extract Data</button>
+        </div>
+    </div>
+
+    <!-- Step 3: Export -->
+    <div id="step-export" class="container hidden">
+        <h2>Step 3: Export Data</h2>
+
+        <div class="line-selector">
+            <label for="line-select">View line: </label>
+            <select id="line-select" onchange="updateDataPreview()">
+                <option value="all">All lines</option>
+            </select>
+        </div>
+
+        <div id="plot-container">
+            <canvas id="plot-canvas"></canvas>
+        </div>
+
+        <div class="data-preview" id="data-preview"></div>
+
+        <div class="export-section">
+            <button class="btn btn-success" onclick="downloadCSV()">Download All (Single CSV)</button>
+            <button class="btn" onclick="downloadSelectedCSV()">Download Selected Line</button>
+            <button class="btn" onclick="downloadAllCSV()">Download All (Separate Files)</button>
+            <button class="btn" onclick="goBackToCalibrate()">Back to Selection</button>
+        </div>
+    </div>
+
+    <div id="tooltip" class="tooltip hidden"></div>
+
+    <footer class="credit">
+        This tool was created by <strong>Adam Kucharski</strong>. If you found it useful, consider adding a <a href="https://github.com/adamkucharski/pdfy" target="_blank" rel="noopener">star on GitHub</a>.
+    </footer>
+
+    <script>
+        // Initialize PDF.js worker
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+        // Global state
+        let pdfPaths = [];
+        let selectedXTicks = [];
+        let selectedYTicks = [];
+        let selectedDataPaths = [];
+        let currentMode = 'x-tick';
+        let fileName = '';
+        let extractedData = [];
+        let canvasScale = 1;
+        let pathBounds = [];
+        let pdfDoc = null;
+        let pdfPage = null;
+        let viewport = null;
+
+        // DOM elements
+        const uploadArea = document.getElementById('upload-area');
+        const fileInput = document.getElementById('file-input');
+        const pdfCanvas = document.getElementById('pdf-canvas');
+        const overlayCanvas = document.getElementById('overlay-canvas');
+        const pdfCtx = pdfCanvas.getContext('2d');
+        const overlayCtx = overlayCanvas.getContext('2d');
+        const tooltip = document.getElementById('tooltip');
+
+        // File upload handling
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file && file.type === 'application/pdf') {
+                handleFile(file);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                handleFile(file);
+            }
+        });
+
+        uploadArea.addEventListener('click', (e) => {
+            if (e.target !== fileInput && e.target.tagName !== 'BUTTON') {
+                fileInput.click();
+            }
+        });
+
+        async function handleFile(file) {
+            fileName = file.name.replace('.pdf', '');
+            document.getElementById('file-name').textContent = `Selected: ${file.name}`;
+            document.getElementById('file-name').classList.remove('hidden');
+            document.getElementById('loading').classList.remove('hidden');
+
+            const arrayBuffer = await file.arrayBuffer();
+            await parsePDF(arrayBuffer);
+        }
+
+        async function parsePDF(arrayBuffer) {
+            try {
+                console.log('Loading PDF...');
+                pdfDoc = await pdfjsLib.getDocument(arrayBuffer).promise;
+                console.log('PDF loaded, getting page 1...');
+                pdfPage = await pdfDoc.getPage(1);
+                console.log('Page loaded');
+
+                // Calculate scale to fit container
+                const containerWidth = document.getElementById('canvas-container').clientWidth - 40 || 800;
+                const baseViewport = pdfPage.getViewport({ scale: 1 });
+                console.log('Base viewport:', baseViewport.width, 'x', baseViewport.height);
+
+                canvasScale = Math.min(2, Math.max(1, containerWidth / baseViewport.width));
+                viewport = pdfPage.getViewport({ scale: canvasScale });
+                console.log('Scaled viewport:', viewport.width, 'x', viewport.height);
+
+                // Setup canvases
+                pdfCanvas.width = viewport.width;
+                pdfCanvas.height = viewport.height;
+                pdfCanvas.style.width = viewport.width + 'px';
+                pdfCanvas.style.height = viewport.height + 'px';
+
+                overlayCanvas.width = viewport.width;
+                overlayCanvas.height = viewport.height;
+                overlayCanvas.style.width = viewport.width + 'px';
+                overlayCanvas.style.height = viewport.height + 'px';
+
+                console.log('Canvas size set:', pdfCanvas.width, 'x', pdfCanvas.height);
+
+                // Render PDF to canvas
+                console.log('Rendering PDF...');
+                await pdfPage.render({
+                    canvasContext: pdfCtx,
+                    viewport: viewport
+                }).promise;
+                console.log('PDF rendered');
+
+                // Extract paths from operators
+                await extractPaths();
+                console.log('Extracted', pdfPaths.length, 'paths');
+                if (pdfPaths.length > 0) {
+                    console.log('First path:', pdfPaths[0]);
+                    console.log('First path bounds:', pathBounds[0]);
+                }
+
+                // Draw initial overlay (show all paths faintly so user can see what's clickable)
+                drawOverlay();
+
+                // Hide loading, show calibration
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('step-upload').classList.add('hidden');
+                document.getElementById('step-calibrate').classList.remove('hidden');
+
+                updateModeButtons();
+
+            } catch (error) {
+                console.error('Error parsing PDF:', error);
+                document.getElementById('loading').classList.add('hidden');
+                alert('Error parsing PDF: ' + error.message);
+            }
+        }
+
+        async function extractPaths() {
+            const opList = await pdfPage.getOperatorList();
+            const baseViewport = pdfPage.getViewport({ scale: 1 });
+
+            pdfPaths = [];
+            pathBounds = [];
+            let currentPath = [];
+            let currentColor = '#000000';
+            let currentX = 0, currentY = 0;
+            let transformMatrix = [1, 0, 0, 1, 0, 0]; // Identity matrix
+            let transformStack = [];
+
+            function applyTransform(x, y) {
+                const [a, b, c, d, e, f] = transformMatrix;
+                return {
+                    x: a * x + c * y + e,
+                    y: b * x + d * y + f
+                };
+            }
+
+            function multiplyMatrices(m1, m2) {
+                const [a1, b1, c1, d1, e1, f1] = m1;
+                const [a2, b2, c2, d2, e2, f2] = m2;
+                return [
+                    a1*a2 + c1*b2,
+                    b1*a2 + d1*b2,
+                    a1*c2 + c1*d2,
+                    b1*c2 + d1*d2,
+                    a1*e2 + c1*f2 + e1,
+                    b1*e2 + d1*f2 + f1
+                ];
+            }
+
+            // Process operators to extract paths
+            for (let i = 0; i < opList.fnArray.length; i++) {
+                const fn = opList.fnArray[i];
+                const args = opList.argsArray[i];
+
+                switch (fn) {
+                    case pdfjsLib.OPS.save:
+                        transformStack.push([...transformMatrix]);
+                        break;
+
+                    case pdfjsLib.OPS.restore:
+                        if (transformStack.length > 0) {
+                            transformMatrix = transformStack.pop();
+                        }
+                        break;
+
+                    case pdfjsLib.OPS.transform:
+                        transformMatrix = multiplyMatrices(transformMatrix, args);
+                        break;
+
+                    case pdfjsLib.OPS.setStrokeRGBColor:
+                    case pdfjsLib.OPS.setFillRGBColor:
+                        if (args && args.length >= 3) {
+                            const r = Math.round(args[0] * 255);
+                            const g = Math.round(args[1] * 255);
+                            const b = Math.round(args[2] * 255);
+                            currentColor = `rgb(${r},${g},${b})`;
+                        }
+                        break;
+
+                    case pdfjsLib.OPS.setStrokeGray:
+                    case pdfjsLib.OPS.setFillGray:
+                        if (args && args.length >= 1) {
+                            const gray = Math.round(args[0] * 255);
+                            currentColor = `rgb(${gray},${gray},${gray})`;
+                        }
+                        break;
+
+                    case pdfjsLib.OPS.moveTo:
+                        if (currentPath.length > 1) {
+                            savePath(currentPath, currentColor, baseViewport.height);
+                        }
+                        const movePoint = applyTransform(args[0], args[1]);
+                        currentPath = [movePoint];
+                        currentX = args[0];
+                        currentY = args[1];
+                        break;
+
+                    case pdfjsLib.OPS.lineTo:
+                        const linePoint = applyTransform(args[0], args[1]);
+                        currentPath.push(linePoint);
+                        currentX = args[0];
+                        currentY = args[1];
+                        break;
+
+                    case pdfjsLib.OPS.curveTo:
+                    case pdfjsLib.OPS.curveTo2:
+                    case pdfjsLib.OPS.curveTo3:
+                        // Bezier curve - sample points along it
+                        let cp1x, cp1y, cp2x, cp2y, endX, endY;
+
+                        if (fn === pdfjsLib.OPS.curveTo) {
+                            cp1x = args[0]; cp1y = args[1];
+                            cp2x = args[2]; cp2y = args[3];
+                            endX = args[4]; endY = args[5];
+                        } else if (fn === pdfjsLib.OPS.curveTo2) {
+                            cp1x = currentX; cp1y = currentY;
+                            cp2x = args[0]; cp2y = args[1];
+                            endX = args[2]; endY = args[3];
+                        } else {
+                            cp1x = args[0]; cp1y = args[1];
+                            cp2x = args[2]; cp2y = args[3];
+                            endX = args[2]; endY = args[3];
+                        }
+
+                        for (let t = 0.1; t <= 1; t += 0.1) {
+                            const px = bezier(t, currentX, cp1x, cp2x, endX);
+                            const py = bezier(t, currentY, cp1y, cp2y, endY);
+                            const transformedPoint = applyTransform(px, py);
+                            currentPath.push(transformedPoint);
+                        }
+                        currentX = endX;
+                        currentY = endY;
+                        break;
+
+                    case pdfjsLib.OPS.closePath:
+                        if (currentPath.length > 0) {
+                            currentPath.push({ ...currentPath[0] });
+                        }
+                        break;
+
+                    case pdfjsLib.OPS.stroke:
+                    case pdfjsLib.OPS.fill:
+                    case pdfjsLib.OPS.fillStroke:
+                    case pdfjsLib.OPS.eoFill:
+                    case pdfjsLib.OPS.eoFillStroke:
+                        if (currentPath.length > 1) {
+                            savePath(currentPath, currentColor, baseViewport.height);
+                        }
+                        currentPath = [];
+                        break;
+
+                    case pdfjsLib.OPS.rectangle:
+                        // Rectangle: x, y, width, height
+                        const rx = args[0], ry = args[1], rw = args[2], rh = args[3];
+                        const corners = [
+                            applyTransform(rx, ry),
+                            applyTransform(rx + rw, ry),
+                            applyTransform(rx + rw, ry + rh),
+                            applyTransform(rx, ry + rh),
+                            applyTransform(rx, ry)
+                        ];
+                        if (currentPath.length > 1) {
+                            savePath(currentPath, currentColor, baseViewport.height);
+                        }
+                        currentPath = corners;
+                        break;
+
+                    case pdfjsLib.OPS.constructPath:
+                        // Handle constructed paths (more complex)
+                        if (args && args.length >= 2) {
+                            const ops = args[0];
+                            const pathArgs = args[1];
+                            let argIdx = 0;
+
+                            for (const op of ops) {
+                                switch (op) {
+                                    case pdfjsLib.OPS.moveTo:
+                                        if (currentPath.length > 1) {
+                                            savePath(currentPath, currentColor, baseViewport.height);
+                                        }
+                                        const mp = applyTransform(pathArgs[argIdx], pathArgs[argIdx + 1]);
+                                        currentPath = [mp];
+                                        currentX = pathArgs[argIdx];
+                                        currentY = pathArgs[argIdx + 1];
+                                        argIdx += 2;
+                                        break;
+                                    case pdfjsLib.OPS.lineTo:
+                                        const lp = applyTransform(pathArgs[argIdx], pathArgs[argIdx + 1]);
+                                        currentPath.push(lp);
+                                        currentX = pathArgs[argIdx];
+                                        currentY = pathArgs[argIdx + 1];
+                                        argIdx += 2;
+                                        break;
+                                    case pdfjsLib.OPS.rectangle:
+                                        const rrx = pathArgs[argIdx], rry = pathArgs[argIdx + 1];
+                                        const rrw = pathArgs[argIdx + 2], rrh = pathArgs[argIdx + 3];
+                                        if (currentPath.length > 1) {
+                                            savePath(currentPath, currentColor, baseViewport.height);
+                                        }
+                                        currentPath = [
+                                            applyTransform(rrx, rry),
+                                            applyTransform(rrx + rrw, rry),
+                                            applyTransform(rrx + rrw, rry + rrh),
+                                            applyTransform(rrx, rry + rrh),
+                                            applyTransform(rrx, rry)
+                                        ];
+                                        argIdx += 4;
+                                        break;
+                                }
+                            }
+                        }
+                        break;
+                }
+            }
+
+            // Save any remaining path
+            if (currentPath.length > 1) {
+                savePath(currentPath, currentColor, baseViewport.height);
+            }
+
+            // Filter out very small paths (noise) but keep tick marks (small lines)
+            pdfPaths = pdfPaths.filter(p => {
+                if (p.points.length < 2) return false;
+                const bounds = getPathBounds(p.points);
+                const size = Math.max(bounds.width, bounds.height);
+                return size > 1; // Lower threshold to keep tick marks
+            });
+
+            // Calculate bounds for each path
+            pathBounds = pdfPaths.map(p => getPathBounds(p.points));
+        }
+
+        function bezier(t, p0, p1, p2, p3) {
+            const mt = 1 - t;
+            return mt*mt*mt*p0 + 3*mt*mt*t*p1 + 3*mt*t*t*p2 + t*t*t*p3;
+        }
+
+        function savePath(points, color, viewportHeight) {
+            if (points.length < 2) return;
+
+            // Convert to canvas coordinates (flip Y)
+            const converted = points.map(p => ({
+                x: p.x,
+                y: viewportHeight - p.y
+            }));
+
+            pdfPaths.push({
+                points: converted,
+                color: color,
+                id: pdfPaths.length
+            });
+        }
+
+        function getPathBounds(points) {
+            const xs = points.map(p => p.x);
+            const ys = points.map(p => p.y);
+            const minX = Math.min(...xs);
+            const maxX = Math.max(...xs);
+            const minY = Math.min(...ys);
+            const maxY = Math.max(...ys);
+            return {
+                minX, maxX, minY, maxY,
+                width: maxX - minX,
+                height: maxY - minY,
+                centerX: (minX + maxX) / 2,
+                centerY: (minY + maxY) / 2
+            };
+        }
+
+        function drawOverlay() {
+            overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+
+            // Draw ALL paths faintly so user can see what's clickable
+            pdfPaths.forEach((path, idx) => {
+                let color = 'rgba(100, 100, 255, 0.3)'; // Faint blue for unselected
+                let lineWidth = 2;
+
+                if (selectedXTicks.includes(idx)) {
+                    color = 'rgba(231, 76, 60, 0.9)'; // Red for X-ticks
+                    lineWidth = 4;
+                } else if (selectedYTicks.includes(idx)) {
+                    color = 'rgba(39, 174, 96, 0.9)'; // Green for Y-ticks
+                    lineWidth = 4;
+                } else if (selectedDataPaths.includes(idx)) {
+                    color = 'rgba(155, 89, 182, 0.9)'; // Purple for data
+                    lineWidth = 4;
+                }
+
+                drawPathOverlay(path.points, color, lineWidth);
+            });
+
+            // Label X-ticks as L/R based on position
+            if (selectedXTicks.length > 0) {
+                const sortedX = [...selectedXTicks].sort((a, b) =>
+                    pathBounds[a].centerX - pathBounds[b].centerX
+                );
+                sortedX.forEach((idx, i) => {
+                    const bounds = pathBounds[idx];
+                    const label = i === 0 ? 'L' : 'R';
+                    drawLabel(bounds.centerX, bounds.centerY - 10, label, 'rgba(231, 76, 60, 1)');
+                });
+            }
+
+            // Label Y-ticks as B/T based on position
+            if (selectedYTicks.length > 0) {
+                const sortedY = [...selectedYTicks].sort((a, b) =>
+                    pathBounds[b].centerY - pathBounds[a].centerY  // Inverted: larger Y = bottom
+                );
+                sortedY.forEach((idx, i) => {
+                    const bounds = pathBounds[idx];
+                    const label = i === 0 ? 'B' : 'T';
+                    drawLabel(bounds.centerX + 15, bounds.centerY, label, 'rgba(39, 174, 96, 1)');
+                });
+            }
+
+            // Label data lines with numbers
+            selectedDataPaths.forEach((idx, i) => {
+                const bounds = pathBounds[idx];
+                drawLabel(bounds.centerX, bounds.centerY, (i + 1).toString(), 'rgba(155, 89, 182, 1)');
+            });
+        }
+
+        function drawLabel(x, y, text, color) {
+            const scaledX = x * canvasScale;
+            const scaledY = y * canvasScale;
+
+            overlayCtx.font = `bold ${14 * canvasScale}px sans-serif`;
+            overlayCtx.fillStyle = 'white';
+            overlayCtx.strokeStyle = color;
+            overlayCtx.lineWidth = 3;
+
+            // Draw background
+            const metrics = overlayCtx.measureText(text);
+            const padding = 4 * canvasScale;
+            overlayCtx.fillStyle = color;
+            overlayCtx.beginPath();
+            overlayCtx.roundRect(
+                scaledX - metrics.width/2 - padding,
+                scaledY - 8 * canvasScale - padding,
+                metrics.width + padding * 2,
+                16 * canvasScale + padding
+            , 4 * canvasScale);
+            overlayCtx.fill();
+
+            // Draw text
+            overlayCtx.fillStyle = 'white';
+            overlayCtx.textAlign = 'center';
+            overlayCtx.textBaseline = 'middle';
+            overlayCtx.fillText(text, scaledX, scaledY);
+        }
+
+        function drawPathOverlay(points, color, lineWidth) {
+            if (points.length < 2) return;
+
+            overlayCtx.beginPath();
+            overlayCtx.moveTo(points[0].x * canvasScale, points[0].y * canvasScale);
+
+            for (let i = 1; i < points.length; i++) {
+                overlayCtx.lineTo(points[i].x * canvasScale, points[i].y * canvasScale);
+            }
+
+            overlayCtx.strokeStyle = color;
+            overlayCtx.lineWidth = lineWidth;
+            overlayCtx.lineCap = 'round';
+            overlayCtx.lineJoin = 'round';
+            overlayCtx.stroke();
+        }
+
+        // Canvas click handling
+        overlayCanvas.addEventListener('click', (e) => {
+            const rect = overlayCanvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left) / canvasScale;
+            const y = (e.clientY - rect.top) / canvasScale;
+
+            // Find closest path
+            let closestPath = -1;
+            let minDist = Infinity;
+
+            pdfPaths.forEach((path, idx) => {
+                const dist = distanceToPath(x, y, path.points);
+                if (dist < minDist) {
+                    minDist = dist;
+                    closestPath = idx;
+                }
+            });
+
+            if (closestPath >= 0 && minDist < 15) {
+                selectPath(closestPath);
+            }
+        });
+
+        // Canvas hover for tooltip
+        overlayCanvas.addEventListener('mousemove', (e) => {
+            const rect = overlayCanvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left) / canvasScale;
+            const y = (e.clientY - rect.top) / canvasScale;
+
+            let closestPath = -1;
+            let minDist = Infinity;
+
+            pdfPaths.forEach((path, idx) => {
+                const dist = distanceToPath(x, y, path.points);
+                if (dist < minDist) {
+                    minDist = dist;
+                    closestPath = idx;
+                }
+            });
+
+            if (closestPath >= 0 && minDist < 15) {
+                const path = pdfPaths[closestPath];
+                const bounds = pathBounds[closestPath];
+                let typeLabel = '';
+                if (selectedXTicks.includes(closestPath)) typeLabel = ' (X-tick)';
+                else if (selectedYTicks.includes(closestPath)) typeLabel = ' (Y-tick)';
+                else if (selectedDataPaths.includes(closestPath)) typeLabel = ' (Data)';
+
+                tooltip.textContent = `Path ${closestPath}: ${path.points.length} pts${typeLabel}`;
+                tooltip.style.left = `${e.pageX + 10}px`;
+                tooltip.style.top = `${e.pageY + 10}px`;
+                tooltip.classList.remove('hidden');
+                overlayCanvas.style.cursor = 'pointer';
+            } else {
+                tooltip.classList.add('hidden');
+                overlayCanvas.style.cursor = 'crosshair';
+            }
+        });
+
+        overlayCanvas.addEventListener('mouseleave', () => {
+            tooltip.classList.add('hidden');
+        });
+
+        function distanceToPath(px, py, points) {
+            let minDist = Infinity;
+
+            for (let i = 0; i < points.length - 1; i++) {
+                const dist = distanceToSegment(px, py, points[i], points[i + 1]);
+                minDist = Math.min(minDist, dist);
+            }
+
+            // Also check distance to points themselves
+            for (const p of points) {
+                const dist = Math.sqrt((px - p.x) ** 2 + (py - p.y) ** 2);
+                minDist = Math.min(minDist, dist);
+            }
+
+            return minDist;
+        }
+
+        function distanceToSegment(px, py, p1, p2) {
+            const dx = p2.x - p1.x;
+            const dy = p2.y - p1.y;
+            const len2 = dx * dx + dy * dy;
+
+            if (len2 === 0) {
+                return Math.sqrt((px - p1.x) ** 2 + (py - p1.y) ** 2);
+            }
+
+            let t = ((px - p1.x) * dx + (py - p1.y) * dy) / len2;
+            t = Math.max(0, Math.min(1, t));
+
+            const projX = p1.x + t * dx;
+            const projY = p1.y + t * dy;
+
+            return Math.sqrt((px - projX) ** 2 + (py - projY) ** 2);
+        }
+
+        function selectPath(idx) {
+            // Remove from other selections first
+            if (currentMode === 'x-tick') {
+                selectedYTicks = selectedYTicks.filter(i => i !== idx);
+                selectedDataPaths = selectedDataPaths.filter(i => i !== idx);
+            } else if (currentMode === 'y-tick') {
+                selectedXTicks = selectedXTicks.filter(i => i !== idx);
+                selectedDataPaths = selectedDataPaths.filter(i => i !== idx);
+            } else {
+                selectedXTicks = selectedXTicks.filter(i => i !== idx);
+                selectedYTicks = selectedYTicks.filter(i => i !== idx);
+            }
+
+            switch (currentMode) {
+                case 'x-tick':
+                    if (selectedXTicks.includes(idx)) {
+                        selectedXTicks = selectedXTicks.filter(i => i !== idx);
+                    } else if (selectedXTicks.length < 2) {
+                        selectedXTicks.push(idx);
+                    } else {
+                        // Replace oldest selection
+                        selectedXTicks.shift();
+                        selectedXTicks.push(idx);
+                    }
+                    break;
+                case 'y-tick':
+                    if (selectedYTicks.includes(idx)) {
+                        selectedYTicks = selectedYTicks.filter(i => i !== idx);
+                    } else if (selectedYTicks.length < 2) {
+                        selectedYTicks.push(idx);
+                    } else {
+                        selectedYTicks.shift();
+                        selectedYTicks.push(idx);
+                    }
+                    break;
+                case 'data':
+                    if (selectedDataPaths.includes(idx)) {
+                        selectedDataPaths = selectedDataPaths.filter(i => i !== idx);
+                    } else {
+                        selectedDataPaths.push(idx);
+                    }
+                    break;
+            }
+
+            drawOverlay();
+            updateModeButtons();
+            updateExtractButton();
+
+            // Auto-advance to next mode when current selection is complete
+            if (currentMode === 'x-tick' && selectedXTicks.length === 2) {
+                setMode('y-tick');
+            } else if (currentMode === 'y-tick' && selectedYTicks.length === 2) {
+                setMode('data');
+            }
+        }
+
+        function setMode(mode) {
+            currentMode = mode;
+            document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+            document.querySelector(`[data-mode="${mode}"]`).classList.add('active');
+            updateModeButtons();
+        }
+
+        function updateModeButtons() {
+            document.getElementById('mode-x').textContent = `Select X-Axis Ticks (${selectedXTicks.length}/2)`;
+            document.getElementById('mode-y').textContent = `Select Y-Axis Ticks (${selectedYTicks.length}/2)`;
+            document.getElementById('mode-data').textContent = `Select Data Lines (${selectedDataPaths.length})`;
+
+            // Update step indicators
+            document.getElementById('step-ind-1').className = `step ${selectedXTicks.length === 2 ? 'completed' : (currentMode === 'x-tick' ? 'active' : '')}`;
+            document.getElementById('step-ind-2').className = `step ${selectedYTicks.length === 2 ? 'completed' : (currentMode === 'y-tick' ? 'active' : '')}`;
+            document.getElementById('step-ind-3').className = `step ${selectedDataPaths.length > 0 ? 'completed' : (currentMode === 'data' ? 'active' : '')}`;
+        }
+
+        function updateExtractButton() {
+            const canExtract = selectedXTicks.length === 2 &&
+                              selectedYTicks.length === 2 &&
+                              selectedDataPaths.length > 0;
+            document.getElementById('btn-extract').disabled = !canExtract;
+        }
+
+        // Mode button handlers
+        document.querySelectorAll('.mode-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                currentMode = btn.dataset.mode;
+                document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                updateModeButtons();
+            });
+        });
+
+        function resetSelection() {
+            selectedXTicks = [];
+            selectedYTicks = [];
+            selectedDataPaths = [];
+            document.getElementById('x-tick-left-val').value = '';
+            document.getElementById('x-tick-right-val').value = '';
+            document.getElementById('y-tick-bottom-val').value = '';
+            document.getElementById('y-tick-top-val').value = '';
+            document.getElementById('x-log-scale').checked = false;
+            document.getElementById('y-log-scale').checked = false;
+            currentMode = 'x-tick';
+            document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+            document.querySelector('[data-mode="x-tick"]').classList.add('active');
+            drawOverlay();
+            updateModeButtons();
+            updateExtractButton();
+        }
+
+        // Determine decimal places from user input
+        function getDecimalPlaces(value) {
+            const str = value.toString();
+            const decimal = str.indexOf('.');
+            if (decimal === -1) return 0;
+            return str.length - decimal - 1;
+        }
+
+        function extractData() {
+            const xLeftVal = parseFloat(document.getElementById('x-tick-left-val').value);
+            const xRightVal = parseFloat(document.getElementById('x-tick-right-val').value);
+            const yBottomVal = parseFloat(document.getElementById('y-tick-bottom-val').value);
+            const yTopVal = parseFloat(document.getElementById('y-tick-top-val').value);
+            const xLogScale = document.getElementById('x-log-scale').checked;
+            const yLogScale = document.getElementById('y-log-scale').checked;
+
+            if (isNaN(xLeftVal) || isNaN(xRightVal) || isNaN(yBottomVal) || isNaN(yTopVal)) {
+                alert('Please enter values for all tick marks.');
+                return;
+            }
+
+            // Determine precision from user inputs
+            const xDecimals = Math.max(
+                getDecimalPlaces(document.getElementById('x-tick-left-val').value),
+                getDecimalPlaces(document.getElementById('x-tick-right-val').value)
+            );
+            const yDecimals = Math.max(
+                getDecimalPlaces(document.getElementById('y-tick-bottom-val').value),
+                getDecimalPlaces(document.getElementById('y-tick-top-val').value)
+            );
+
+            // Sort X ticks by position (left to right = smaller X to larger X)
+            const sortedXTicks = [...selectedXTicks].sort((a, b) =>
+                pathBounds[a].centerX - pathBounds[b].centerX
+            );
+            const xLeftLoc = pathBounds[sortedXTicks[0]].centerX;
+            const xRightLoc = pathBounds[sortedXTicks[1]].centerX;
+
+            // Sort Y ticks by position (bottom to top = larger canvas Y to smaller canvas Y)
+            const sortedYTicks = [...selectedYTicks].sort((a, b) =>
+                pathBounds[b].centerY - pathBounds[a].centerY
+            );
+            const yBottomLoc = pathBounds[sortedYTicks[0]].centerY;  // Larger canvas Y = bottom
+            const yTopLoc = pathBounds[sortedYTicks[1]].centerY;     // Smaller canvas Y = top
+
+            // Extract data from selected paths
+            extractedData = [];
+
+            selectedDataPaths.forEach((pathIdx, dataIdx) => {
+                const path = pdfPaths[pathIdx];
+                const lineData = [];
+
+                path.points.forEach(point => {
+                    let x, y;
+
+                    // Linear interpolation for X (left to right)
+                    const xT = (point.x - xLeftLoc) / (xRightLoc - xLeftLoc);
+                    if (xLogScale) {
+                        const logXLeft = Math.log10(xLeftVal);
+                        const logXRight = Math.log10(xRightVal);
+                        x = Math.pow(10, logXLeft + xT * (logXRight - logXLeft));
+                    } else {
+                        x = xLeftVal + xT * (xRightVal - xLeftVal);
+                    }
+
+                    // Linear interpolation for Y (bottom to top)
+                    const yT = (point.y - yBottomLoc) / (yTopLoc - yBottomLoc);
+                    if (yLogScale) {
+                        const logYBottom = Math.log10(yBottomVal);
+                        const logYTop = Math.log10(yTopVal);
+                        y = Math.pow(10, logYBottom + yT * (logYTop - logYBottom));
+                    } else {
+                        y = yBottomVal + yT * (yTopVal - yBottomVal);
+                    }
+
+                    // Round to match user input precision
+                    x = Number(x.toFixed(xDecimals));
+                    y = Number(y.toFixed(yDecimals));
+
+                    lineData.push({ x, y });
+                });
+
+                // Sort by x value
+                lineData.sort((a, b) => a.x - b.x);
+
+                extractedData.push({
+                    index: dataIdx + 1,
+                    pathId: pathIdx,
+                    points: lineData
+                });
+            });
+
+            // Show export step
+            showExportStep();
+        }
+
+        // Colors for different lines
+        const lineColors = [
+            '#9b59b6', '#3498db', '#e74c3c', '#27ae60', '#f39c12',
+            '#1abc9c', '#e91e63', '#00bcd4', '#ff5722', '#795548'
+        ];
+
+        function showExportStep() {
+            document.getElementById('step-calibrate').classList.add('hidden');
+            document.getElementById('step-export').classList.remove('hidden');
+
+            // Populate line selector dropdown
+            const select = document.getElementById('line-select');
+            select.innerHTML = '<option value="all">All lines</option>';
+            extractedData.forEach(line => {
+                select.innerHTML += `<option value="${line.index}">Line ${line.index} (${line.points.length} points)</option>`;
+            });
+
+            // Build preview table and plot
+            updateDataPreview();
+        }
+
+        function updateDataPreview() {
+            const selectedLine = document.getElementById('line-select').value;
+            const linesToShow = selectedLine === 'all'
+                ? extractedData
+                : extractedData.filter(l => l.index === parseInt(selectedLine));
+
+            // Draw the plot
+            drawPlot(linesToShow);
+
+            // Build table
+            let html = '<table><thead><tr><th>Line</th><th>X</th><th>Y</th></tr></thead><tbody>';
+
+            linesToShow.forEach(line => {
+                line.points.forEach((point, idx) => {
+                    if (idx < 20 || idx === line.points.length - 1) {
+                        html += `<tr>
+                            <td>${line.index}</td>
+                            <td>${point.x}</td>
+                            <td>${point.y}</td>
+                        </tr>`;
+                    } else if (idx === 20) {
+                        html += `<tr><td colspan="3">... (${line.points.length - 21} more rows)</td></tr>`;
+                    }
+                });
+            });
+
+            html += '</tbody></table>';
+            document.getElementById('data-preview').innerHTML = html;
+        }
+
+        function drawPlot(linesToShow) {
+            const canvas = document.getElementById('plot-canvas');
+            const ctx = canvas.getContext('2d');
+
+            // Set canvas size
+            const containerWidth = document.getElementById('plot-container').clientWidth - 20;
+            const width = Math.min(800, containerWidth);
+            const height = 400;
+            canvas.width = width;
+            canvas.height = height;
+
+            // Plot margins
+            const margin = { top: 30, right: 120, bottom: 50, left: 70 };
+            const plotWidth = width - margin.left - margin.right;
+            const plotHeight = height - margin.top - margin.bottom;
+
+            // Clear canvas
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, width, height);
+
+            // Find data bounds
+            let xMin = Infinity, xMax = -Infinity;
+            let yMin = Infinity, yMax = -Infinity;
+
+            linesToShow.forEach(line => {
+                line.points.forEach(p => {
+                    xMin = Math.min(xMin, p.x);
+                    xMax = Math.max(xMax, p.x);
+                    yMin = Math.min(yMin, p.y);
+                    yMax = Math.max(yMax, p.y);
+                });
+            });
+
+            // Add padding to bounds
+            const xPad = (xMax - xMin) * 0.05 || 1;
+            const yPad = (yMax - yMin) * 0.05 || 1;
+            xMin -= xPad; xMax += xPad;
+            yMin -= yPad; yMax += yPad;
+
+            // Scale functions
+            const scaleX = x => margin.left + (x - xMin) / (xMax - xMin) * plotWidth;
+            const scaleY = y => margin.top + plotHeight - (y - yMin) / (yMax - yMin) * plotHeight;
+
+            // Draw axes
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(margin.left, margin.top);
+            ctx.lineTo(margin.left, margin.top + plotHeight);
+            ctx.lineTo(margin.left + plotWidth, margin.top + plotHeight);
+            ctx.stroke();
+
+            // Draw grid and tick labels
+            ctx.fillStyle = '#333';
+            ctx.font = '11px sans-serif';
+            ctx.textAlign = 'center';
+
+            // X-axis ticks
+            const xTicks = 5;
+            for (let i = 0; i <= xTicks; i++) {
+                const val = xMin + (xMax - xMin) * i / xTicks;
+                const x = scaleX(val);
+
+                ctx.strokeStyle = '#eee';
+                ctx.beginPath();
+                ctx.moveTo(x, margin.top);
+                ctx.lineTo(x, margin.top + plotHeight);
+                ctx.stroke();
+
+                ctx.fillStyle = '#333';
+                ctx.fillText(formatTickLabel(val), x, margin.top + plotHeight + 20);
+            }
+
+            // Y-axis ticks
+            ctx.textAlign = 'right';
+            const yTicks = 5;
+            for (let i = 0; i <= yTicks; i++) {
+                const val = yMin + (yMax - yMin) * i / yTicks;
+                const y = scaleY(val);
+
+                ctx.strokeStyle = '#eee';
+                ctx.beginPath();
+                ctx.moveTo(margin.left, y);
+                ctx.lineTo(margin.left + plotWidth, y);
+                ctx.stroke();
+
+                ctx.fillStyle = '#333';
+                ctx.fillText(formatTickLabel(val), margin.left - 10, y + 4);
+            }
+
+            // Axis labels
+            ctx.fillStyle = '#333';
+            ctx.font = '12px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('X', margin.left + plotWidth / 2, height - 10);
+
+            ctx.save();
+            ctx.translate(15, margin.top + plotHeight / 2);
+            ctx.rotate(-Math.PI / 2);
+            ctx.fillText('Y', 0, 0);
+            ctx.restore();
+
+            // Draw lines
+            linesToShow.forEach((line, lineIdx) => {
+                const color = lineColors[(line.index - 1) % lineColors.length];
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+
+                line.points.forEach((point, i) => {
+                    const x = scaleX(point.x);
+                    const y = scaleY(point.y);
+                    if (i === 0) {
+                        ctx.moveTo(x, y);
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                });
+
+                ctx.stroke();
+            });
+
+            // Draw legend
+            const legendX = margin.left + plotWidth + 15;
+            let legendY = margin.top + 10;
+
+            ctx.font = 'bold 12px sans-serif';
+            ctx.fillStyle = '#333';
+            ctx.textAlign = 'left';
+            ctx.fillText('Lines', legendX, legendY);
+            legendY += 20;
+
+            linesToShow.forEach((line, lineIdx) => {
+                const color = lineColors[(line.index - 1) % lineColors.length];
+
+                // Color swatch
+                ctx.fillStyle = color;
+                ctx.fillRect(legendX, legendY - 8, 20, 3);
+
+                // Label
+                ctx.fillStyle = '#333';
+                ctx.font = '11px sans-serif';
+                ctx.fillText(`Line ${line.index}`, legendX + 28, legendY);
+
+                legendY += 18;
+            });
+        }
+
+        function formatTickLabel(val) {
+            if (Math.abs(val) >= 1000 || (Math.abs(val) < 0.01 && val !== 0)) {
+                return val.toExponential(1);
+            }
+            return Number(val.toPrecision(4)).toString();
+        }
+
+        function downloadCSV() {
+            let csv = 'line,x,y\n';
+
+            extractedData.forEach(line => {
+                line.points.forEach(point => {
+                    csv += `${line.index},${point.x},${point.y}\n`;
+                });
+            });
+
+            downloadFile(`${fileName}.csv`, csv);
+        }
+
+        function downloadSelectedCSV() {
+            const selectedLine = document.getElementById('line-select').value;
+            if (selectedLine === 'all') {
+                downloadCSV();
+                return;
+            }
+
+            const line = extractedData.find(l => l.index === parseInt(selectedLine));
+            if (line) {
+                let csv = 'x,y\n';
+                line.points.forEach(point => {
+                    csv += `${point.x},${point.y}\n`;
+                });
+                downloadFile(`${fileName}_line${line.index}.csv`, csv);
+            }
+        }
+
+        function downloadAllCSV() {
+            extractedData.forEach(line => {
+                let csv = 'x,y\n';
+                line.points.forEach(point => {
+                    csv += `${point.x},${point.y}\n`;
+                });
+                downloadFile(`${fileName}_${line.index}.csv`, csv);
+            });
+        }
+
+        function downloadFile(filename, content) {
+            const blob = new Blob([content], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function goBackToCalibrate() {
+            document.getElementById('step-export').classList.add('hidden');
+            document.getElementById('step-calibrate').classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
