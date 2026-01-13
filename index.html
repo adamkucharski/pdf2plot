@@ -1419,15 +1419,19 @@
                 });
             });
 
-            // Add padding to bounds
-            const xPad = (xMax - xMin) * 0.05 || 1;
-            const yPad = (yMax - yMin) * 0.05 || 1;
-            xMin -= xPad; xMax += xPad;
-            yMin -= yPad; yMax += yPad;
+            // Calculate nice tick values
+            const xTickVals = getNiceTicks(xMin, xMax, 5);
+            const yTickVals = getNiceTicks(yMin, yMax, 5);
+
+            // Extend bounds slightly beyond nice ticks for padding
+            const xPlotMin = Math.min(xMin, xTickVals[0]);
+            const xPlotMax = Math.max(xMax, xTickVals[xTickVals.length - 1]);
+            const yPlotMin = Math.min(yMin, yTickVals[0]);
+            const yPlotMax = Math.max(yMax, yTickVals[yTickVals.length - 1]);
 
             // Scale functions
-            const scaleX = x => margin.left + (x - xMin) / (xMax - xMin) * plotWidth;
-            const scaleY = y => margin.top + plotHeight - (y - yMin) / (yMax - yMin) * plotHeight;
+            const scaleX = x => margin.left + (x - xPlotMin) / (xPlotMax - xPlotMin) * plotWidth;
+            const scaleY = y => margin.top + plotHeight - (y - yPlotMin) / (yPlotMax - yPlotMin) * plotHeight;
 
             // Draw axes
             ctx.strokeStyle = '#333';
@@ -1444,9 +1448,7 @@
             ctx.textAlign = 'center';
 
             // X-axis ticks
-            const xTicks = 5;
-            for (let i = 0; i <= xTicks; i++) {
-                const val = xMin + (xMax - xMin) * i / xTicks;
+            xTickVals.forEach(val => {
                 const x = scaleX(val);
 
                 ctx.strokeStyle = '#eee';
@@ -1457,13 +1459,11 @@
 
                 ctx.fillStyle = '#333';
                 ctx.fillText(formatTickLabel(val), x, margin.top + plotHeight + 20);
-            }
+            });
 
             // Y-axis ticks
             ctx.textAlign = 'right';
-            const yTicks = 5;
-            for (let i = 0; i <= yTicks; i++) {
-                const val = yMin + (yMax - yMin) * i / yTicks;
+            yTickVals.forEach(val => {
                 const y = scaleY(val);
 
                 ctx.strokeStyle = '#eee';
@@ -1474,7 +1474,7 @@
 
                 ctx.fillStyle = '#333';
                 ctx.fillText(formatTickLabel(val), margin.left - 10, y + 4);
-            }
+            });
 
             // Axis labels
             ctx.fillStyle = '#333';
@@ -1532,6 +1532,41 @@
 
                 legendY += 18;
             });
+        }
+
+        function getNiceTicks(min, max, targetCount) {
+            const range = max - min;
+            if (range === 0) return [min];
+
+            // Calculate rough step size
+            const roughStep = range / targetCount;
+
+            // Find the magnitude of the step
+            const magnitude = Math.pow(10, Math.floor(Math.log10(roughStep)));
+
+            // Normalize step to 1-10 range and round to nice number
+            const normalized = roughStep / magnitude;
+            let niceStep;
+            if (normalized <= 1) niceStep = 1;
+            else if (normalized <= 2) niceStep = 2;
+            else if (normalized <= 5) niceStep = 5;
+            else niceStep = 10;
+
+            const step = niceStep * magnitude;
+
+            // Calculate nice min and max
+            const niceMin = Math.floor(min / step) * step;
+            const niceMax = Math.ceil(max / step) * step;
+
+            // Generate tick values
+            const ticks = [];
+            for (let val = niceMin; val <= niceMax + step * 0.5; val += step) {
+                // Round to avoid floating point errors
+                const roundedVal = Math.round(val / (step / 10)) * (step / 10);
+                ticks.push(roundedVal);
+            }
+
+            return ticks;
         }
 
         function formatTickLabel(val) {
