@@ -2,6 +2,8 @@
 
 A web app to extract data from PDF figures. All processing happens in your browser - no data is uploaded to any server.
 
+Link to the web app: https://adamkucharski.github.io/pdf2plot/
+
 ## How It Works
 
 1. **Upload**: Drop a PDF containing a figure with vector graphics
