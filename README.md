@@ -71,6 +71,6 @@ Scripts to reproduce this benchmark are in [`scripts/`](scripts/). The `plot_01_
 If you use pdf2plot in your work, please cite:
 
 ```
-Kucharski, A. (2026). pdf2plot: A web tool for extracting data from PDF figures.
+Kucharski, A. (2026). pdf2plot: A web tool and skill for extracting data from PDF figures.
 https://github.com/adamkucharski/pdf2plot
 ```
