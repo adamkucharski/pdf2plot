@@ -1,1 +1,9 @@
 .DS_Store
+output/
+outputs/haiku_image/
+outputs/pdf2plot_extracted/
+*_paths.json
+*_paths.png
+Rplots.pdf
+data/figure1.csv
+data/figure1.png
