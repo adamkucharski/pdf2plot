@@ -57,7 +57,7 @@ Extraction accuracy was benchmarked on 10 synthetic line plots generated across 
 | ggpubr | Sinusoidal waves | 2.53% | 32.1% |
 | **Mean** | | **0.38%** | **17.9%** |
 
-Scripts to reproduce this benchmark are in [`scripts/`](scripts/). The `plot_01_*` to `plot_10_*` scripts generate each synthetic figure as a PDF; `compare_extraction.R` runs the pdf2plot and haiku extractions and writes `outputs/extraction_comparison.csv`; `plot_extraction_comparison.R` produces the bar charts above.
+Scripts to reproduce this benchmark are in [`scripts/`](scripts/). The `plot_01_*` to `plot_10_*` scripts generate each synthetic figure as a PDF; `compare_extraction.R` sources the pdf2plot and haiku extractions once complete and writes `outputs/extraction_comparison.csv`; `plot_extraction_comparison.R` produces the bar charts above.
 
 ## Technical details for the web app
 
